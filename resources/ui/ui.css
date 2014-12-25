@@ -1,0 +1,27 @@
+/*demo page css*/
+body
+{
+  font: 62.5% "Trebuchet MS", sans-serif;
+  margin: 1px;
+  -webkit-user-select: none;
+  color: red;
+  font-size: 14px;
+}
+
+fieldset
+{
+  border: 0;
+}
+
+label
+{
+  display: block;
+  padding-top: 10px;
+  padding-bottom: 3px;
+  font-size: 14px;
+}
+
+select
+{
+  width: 200px;
+}
