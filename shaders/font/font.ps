@@ -7,10 +7,14 @@ in vec2 tex_coord;
 flat in vec4 fontcolor;
 flat in float filter_weight;
 
-out vec4 color;
+layout(location=0) out vec4 color;
+layout(location=1) out vec4 attributes;
+layout(location=2) out vec2 velocity;
 
 void main()
 {
   float texval = mix( texture(texture_point, tex_coord).x, texture(texture_linear, tex_coord).x, filter_weight );
   color = vec4( fontcolor.xyz, fontcolor.w * texval );
+  attributes = vec4(0);
+  velocity = vec2(0);
 }

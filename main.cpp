@@ -4,6 +4,7 @@
 #include "font.h"
 #include "animation.h"
 #include "transition.h"
+#include "post_process.h"
 
 #include <sstream>
 #include <string>
@@ -70,7 +71,7 @@ int main( int argc, char** args )
   glDepthFunc( GL_LEQUAL );
   glFrontFace( GL_CCW );
   glEnable( GL_CULL_FACE );
-  glClearColor( 0.0f, 0.0f, 0.0f, 0.0f ); //sky color
+  glClearColor( 0.5f, 0.8f, 0.5f, 0.0f ); //sky color
   glClearDepth( 1.0f );
 
   glViewport( 0, 0, res.x, res.y );
@@ -112,8 +113,8 @@ int main( int argc, char** args )
   anim.turn_on_animation( animation::ROTATION );
   anim.set_start_rotation( radians( 90 ) );
   anim.set_end_rotation( radians( 0 ) );
-  anim.set_start_pos( vec3( 0, 0, 0 ) );
-  anim.set_end_pos( vec3( 20, 0, 0 ) );
+  anim.set_start_pos( vec3( 300, -330, 0 ) );
+  anim.set_end_pos( vec3( 320, -330, 0 ) );
   anim.chain_animation( &anim2 );
   anim.play();
 
@@ -132,13 +133,17 @@ int main( int argc, char** args )
   anim2.turn_on_animation( animation::SIZE );
   anim2.set_start_rotation( radians( 90 ) );
   anim2.set_end_rotation( radians( 0 ) );
-  anim2.set_start_pos( vec3( 120, 0, 0 ) );
-  anim2.set_end_pos( vec3( 140, 0, 0 ) );
+  anim2.set_start_pos( vec3( 420, -330, 0 ) );
+  anim2.set_end_pos( vec3( 440, -330, 0 ) );
   anim2.set_start_scale( vec3( 1 ) );
   anim2.set_end_scale( vec3( 1.1 ) );
   anim2.set_start_size( 20 );
   anim2.set_end_size( 72 );
   anim2.set_repeat_amount( 3 );
+
+  post_process pp;
+  pp.destroy();
+  pp.set_up( res.x, res.y );
 
   sf::Clock global_timer;
 
@@ -223,15 +228,21 @@ int main( int argc, char** args )
 
     browser::get().update();
 
+    pp.start_recording();
+
+    glViewport( 0, 0, res.x, res.y );
+
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
     float dt = global_timer.getElapsedTime().asMilliseconds() * 0.001f;
 
     anim.update( dt );
     anim2.update( dt );
-    cout << endl;
 
     font::get().render();
+
+    pp.end_recording();
+    pp.start_post_process();
 
     //-----------------------------
     //render the UI

@@ -1,0 +1,14 @@
+#version 430 core
+
+layout(binding=0, rgba8) readonly uniform image2D src_tex;
+
+layout(location=0) uniform float level = 0;
+
+in vec2 tex_coord;
+
+layout(location=0) out vec4 color;
+
+void main()
+{
+  color = imageLoad( src_tex, ivec2(tex_coord * imageSize(src_tex).xy) );
+}

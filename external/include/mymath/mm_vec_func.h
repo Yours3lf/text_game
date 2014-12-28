@@ -53,16 +53,13 @@ namespace mymath
 #define MYMATH_OPERATORDIV_FUNC(t) \
   MYMATH_INLINE mm::impl::vec2i<t> operator/ ( const mm::impl::vec2i<t>& a, const mm::impl::vec2i<t>& b ) \
   { assert( !mm::impl::is_eq( b.x, (t)0 ) && !mm::impl::is_eq( b.y, (t)0 ) ); \
-    mm::impl::vec2i<t> tmp = mm::impl::vec2i<t>( ( t )1 / b.x, ( t )1 / b.y ); \
-    return a * tmp; } \
+    return mm::impl::vec2i<t>( a.x / b.x, a.y / b.y );; } \
   MYMATH_INLINE mm::impl::vec3i<t> operator/ ( const mm::impl::vec3i<t>& a, const mm::impl::vec3i<t>& b ) \
   { assert( !mm::impl::is_eq( b.x, (t)0 ) && !mm::impl::is_eq( b.y, (t)0 ) && !mm::impl::is_eq( b.z, (t)0 ) ); \
-    mm::impl::vec3i<t> tmp = mm::impl::vec3i<t>( ( t )1 / b.x, ( t )1 / b.y, ( t )1 / b.z ); \
-    return a * tmp; } \
+    return mm::impl::vec3i<t>( a.x / b.x, a.y / b.y, a.z / b.z ); } \
   MYMATH_INLINE mm::impl::vec4i<t> operator/ ( const mm::impl::vec4i<t>& a, const mm::impl::vec4i<t>& b ) \
   { assert( !mm::impl::is_eq( b.x, (t)0 ) && !mm::impl::is_eq( b.y, (t)0 ) && !mm::impl::is_eq( b.z, (t)0 ) && !mm::impl::is_eq( b.w, (t)0 ) ); \
-    mm::impl::vec4i<t> tmp = mm::impl::vec4i<t>( ( t )1 / b.x, ( t )1 / b.y, ( t )1 / b.z, ( t )1 / b.w ); \
-    return a * tmp; }
+    return mm::impl::vec4i<t>( a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w ); }
 
 //operator+
 #define MYMATH_OPERATORPLUS_FUNC(t) \
