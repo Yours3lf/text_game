@@ -10,6 +10,7 @@
 #include "mm_fvec_swizzle_out.h"
 #include "mm_fvec_func.h"
 #include "mm_fmat_func.h"
+#include "mm_fvec_div.h"
 #endif
 
 #include "mm_vec2_impl.h"

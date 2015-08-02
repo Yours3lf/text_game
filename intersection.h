@@ -4,18 +4,26 @@
 #include "mymath/mymath.h"
 #include <vector>
 
+#ifndef FLT_MAX
+#define FLT_MAX 3.402823466e+38
+#endif
+
+#define INVALID (FLT_MAX)
+
 //based on the fast, constant time multi-dispatcher design pattern
-template<class lhs, 
-class rhs = lhs, 
+template<class lhs,
+class rhs = lhs,
 class ret = void,
-class cbk = ret (*)(lhs, rhs)>
+class cbk = ret( *)( lhs, rhs )>
 class dispatcher
 {
   typedef std::vector<cbk> matrix;
   matrix callbacks;
   int elements;
 public:
-  dispatcher() : elements(0){}
+  dispatcher() : elements( 0 )
+  {
+  }
 
   void set_elements( int num )
   {
@@ -27,7 +35,7 @@ public:
   }
 
   template<class _lhs, class _rhs>
-  void add(cbk func)
+  void add( cbk func )
   {
     int idx_lhs = _lhs::get_class_idx();
     int idx_rhs = _rhs::get_class_idx();
@@ -35,15 +43,15 @@ public:
     callbacks[idx_lhs * elements + idx_rhs] = func;
   }
 
-  ret go(lhs _lhs, rhs _rhs)
+  ret go( lhs _lhs, rhs _rhs )
   {
     int idx_lhs = _lhs->get_class_index();
     int idx_rhs = _rhs->get_class_index();
 
-    assert( idx_lhs >= 0 || idx_rhs >=  0 || idx_lhs < elements || idx_rhs < elements );
+    assert( idx_lhs >= 0 || idx_rhs >= 0 || idx_lhs < elements || idx_rhs < elements );
     assert( callbacks[idx_lhs * elements + idx_rhs] != 0 );
 
-    return callbacks[idx_lhs * elements + idx_rhs](_lhs, _rhs);
+    return callbacks[idx_lhs * elements + idx_rhs]( _lhs, _rhs );
   }
 };
 
@@ -61,83 +69,115 @@ class shape
 {
   static dispatcher<shape*, shape*, bool> _is_on_right_side;
   static dispatcher<shape*, shape*, bool> _is_inside;
-  static dispatcher<shape*, shape*, bool> _intersects;
+  static dispatcher<shape*, shape*, bool> _is_intersecting;
+  static dispatcher<shape*, shape*, mm::vec2> _intersect;
   static bool is_setup;
 public:
   static void set_up_intersection();
 
-  bool is_on_right_side(shape* s)
+  bool is_on_right_side( shape* s )
   {
-    assert(is_setup);
-    return _is_on_right_side.go(this, s);
+    assert( is_setup );
+    return _is_on_right_side.go( this, s );
   }
 
-  bool is_inside(shape* s)
+  bool is_inside( shape* s )
   {
-    assert(is_setup);
-    return _is_inside.go(this, s);
+    assert( is_setup );
+    return _is_inside.go( this, s );
   }
 
-  bool intersects(shape* s)
+  //x: min, y: max intersection
+  mm::vec2 intersect( shape* s )
   {
-    assert(is_setup);
-    return _intersects.go(this, s);
+    assert( is_setup );
+    return _intersect.go( this, s );
   }
 
-  virtual int get_class_index() = 0;
+  bool is_intersecting( shape* s )
+  {
+    assert( is_setup );
+    return _is_intersecting.go( this, s );
+  }
+
+  virtual int get_class_index() const = 0;
 };
 
 dispatcher<shape*, shape*, bool> shape::_is_on_right_side;
 dispatcher<shape*, shape*, bool> shape::_is_inside;
-dispatcher<shape*, shape*, bool> shape::_intersects;
+dispatcher<shape*, shape*, bool> shape::_is_intersecting;
+dispatcher<shape*, shape*, mm::vec2> shape::_intersect;
 bool shape::is_setup = false;
 
-class ray : public shape
-{
-  public:
-    //define a ray by origin and direction
-    mm::vec3 origin, direction;
-    
-    static int get_class_idx()
-    {
-      static int idx = 0;
-      return idx;
-    }
-    
-    int get_class_index()
-    {
-      return get_class_idx();
-    }
-    
-    ray( mm::vec3 o = mm::vec3(), mm::vec3 d = mm::vec3(0, 0, -1) ) : origin( o ), direction( d ) {}
-};
-
-class triangle : public shape
-{
-  public:
-    //define a triangle by three points
-    mm::vec3 k, l, m;
-    
-    static int get_class_idx()
-    {
-      static int idx = 1;
-      return idx;
-    }
-    
-    int get_class_index()
-    {
-      return get_class_idx();
-    }
-    
-    triangle( mm::vec3 kk = mm::vec3(), mm::vec3 ll = mm::vec3(), mm::vec3 mm = mm::vec3() ) : k( kk ), l( ll ), m( mm ) {}
-};
-
-class sphere : public shape
+class MM_16_BYTE_ALIGNED ray : public shape
 {
 public:
-  //define a sphere by a center and a radius
-  mm::vec3 center;
-  float radius;
+  //define a ray by origin and direction
+  mm::vec3 origin, direction;
+
+  static int get_class_idx()
+  {
+    static int idx = 0;
+    return idx;
+  }
+
+  int get_class_index() const
+  {
+    return get_class_idx();
+  }
+
+  ray( const mm::vec3& o = mm::vec3( 0 ), const mm::vec3& d = mm::vec3( 0, 0, -1 ) ) : origin( o ), direction( d )
+  {
+  }
+};
+
+class MM_16_BYTE_ALIGNED triangle : public shape
+{
+public:
+  //define a triangle by three points
+  mm::vec3 k, l, m;
+
+  static int get_class_idx()
+  {
+    static int idx = 1;
+    return idx;
+  }
+
+  int get_class_index() const
+  {
+    return get_class_idx();
+  }
+
+  triangle( const mm::vec3& kk = mm::vec3( 0 ), const mm::vec3& ll = mm::vec3( 0 ), const mm::vec3& mm = mm::vec3( 0 ) ) : k( kk ), l( ll ), m( mm )
+  {
+  }
+};
+
+class MM_16_BYTE_ALIGNED sphere : public shape
+{
+  //define a sphere by a center (xyz) and a radius (w)
+  mm::vec4 data;
+public:
+
+  void set_center( const mm::vec3& c )
+  {
+    data = mm::vec4( c, data.w );
+  }
+
+  mm::vec3 get_center() const
+  {
+    return data.xyz;
+  }
+
+  void set_radius( float r )
+  {
+    data = mm::vec4( data.xyz, r );
+  }
+
+  float get_radius() const
+  {
+    return data.w;
+  }
 
   static int get_class_idx()
   {
@@ -145,20 +185,51 @@ public:
     return idx;
   }
 
-  int get_class_index()
+  int get_class_index() const
   {
     return get_class_idx();
   }
 
-  sphere( mm::vec3 c = mm::vec3(), float r = float() ) : center( c ), radius( r ) {}
+  sphere( const mm::vec3& c = mm::vec3( 0 ), float r = float() ) : data( c, r )
+  {
+  }
 };
 
-class plane : public shape
+class MM_16_BYTE_ALIGNED plane : public shape
 {
+  mm::vec4 data; //xyz: point on plane, w: cache -(normal dot point)
+  mm::vec3 normal; //normal vector pointing out of the plane
 public:
-  //define a plane by a normal and a point
-  mm::vec3 normal, point;
-  float d; //cache -(normal dot point)
+
+  mm::vec3 get_point() const
+  {
+    return data.xyz;
+  }
+
+  void set_point( const mm::vec3& p )
+  {
+    data = mm::vec4( p, data.w );
+  }
+
+  float get_minus_n_dot_p() const
+  {
+    return data.w;
+  }
+
+  void set_minus_n_dot_p( float f )
+  {
+    data = mm::vec4( data.xyz, f );
+  }
+
+  mm::vec3 get_normal() const
+  {
+    return normal;
+  }
+
+  void set_normal( const mm::vec3& n )
+  {
+    normal = n;
+  }
 
   static int get_class_idx()
   {
@@ -166,7 +237,7 @@ public:
     return idx;
   }
 
-  int get_class_index()
+  int get_class_index() const
   {
     return get_class_idx();
   }
@@ -180,20 +251,19 @@ public:
     tmp2 = c - b;
 
     normal = mm::normalize( mm::cross( tmp2, tmp1 ) );
-    point = a;
-    d = -mm::dot( normal, point );
+    data = mm::vec4( a, -mm::dot( normal, a ) );
   }
 
   //signed distance
   float distance( const mm::vec3& p )
   {
-    return d + mm::dot( normal, p );
+    return get_minus_n_dot_p() + mm::dot( normal, p );
   }
 
   //define a plane by a normal and a point
-  plane( const mm::vec3& n = mm::vec3(), const mm::vec3& p = mm::vec3() ) : normal( n ), point( p )
+  plane( const mm::vec3& n = mm::vec3( 0 ), const mm::vec3& p = mm::vec3( 0 ) ) : normal( n )
   {
-    d = -mm::dot( n, p );
+    data = mm::vec4( p, -mm::dot( n, p ) );
   }
 
   plane( const mm::vec3& a, const mm::vec3& b, const mm::vec3& c )
@@ -202,12 +272,20 @@ public:
   }
 };
 
-class aabb : public shape
+class MM_16_BYTE_ALIGNED aabb : public shape
 {
 public:
-  mm::vec3 pos; //center of the aabb
-  mm::vec3 extents; //half-width/height of the aabb
   mm::vec3 min, max; //minimum/maximum apex of the aabb
+
+  mm::vec3 get_extents() const
+  {
+    return mm::abs( max - min ) * 0.5;
+  }
+
+  mm::vec3 get_pos() const
+  {
+    return min + get_extents();
+  }
 
   static int get_class_idx()
   {
@@ -215,13 +293,13 @@ public:
     return idx;
   }
 
-  int get_class_index()
+  int get_class_index() const
   {
     return get_class_idx();
   }
 
   //returns the vertices of the triangles of the aabb in counter clockwise order
-  void get_vertices( std::vector<mm::vec3>& v )
+  void get_vertices( std::vector<mm::vec3>& v ) const
   {
     //left
     v.push_back( mm::vec3( min.x, max.yz ) );
@@ -278,7 +356,7 @@ public:
     v.push_back( mm::vec3( max.x, min.y, max.z ) );
   }
 
-  mm::vec3 get_pos_vertex( const mm::vec3& n )
+  mm::vec3 get_pos_vertex( const mm::vec3& n ) const
   {
     mm::vec3 res = min;
 
@@ -298,11 +376,9 @@ public:
   {
     min = mm::min( min, p );
     max = mm::max( max, p );
-    extents = abs( max - min ) / 2.0f;
-    pos = min + extents;
   }
 
-  mm::vec3 get_neg_vertex( const mm::vec3& n )
+  mm::vec3 get_neg_vertex( const mm::vec3& n ) const
   {
     mm::vec3 res = max;
 
@@ -322,8 +398,6 @@ public:
   {
     min = mm::vec3( FLT_MAX );
     max = mm::vec3( -FLT_MAX );
-    pos = mm::vec3( 0 );
-    extents = mm::vec3( FLT_MAX );
   }
 
   aabb()
@@ -331,10 +405,10 @@ public:
     reset_minmax();
   }
 
-  aabb( const mm::vec3& p, const mm::vec3& e ) : pos( p ), extents( e )
+  aabb( const mm::vec3& p, const mm::vec3& e )
   {
-    min = pos - extents;
-    max = pos + extents;
+    min = p - e;
+    max = p + e;
   }
 };
 
@@ -343,11 +417,11 @@ public:
 #undef FAR
 #endif
 
-class frustum : public shape
+class MM_16_BYTE_ALIGNED frustum : public shape
 {
 public:
-  shape* planes[6];
-  vec3 points[8];
+  plane planes[6];
+  mm::vec3 points[8];
 
   enum which_plane
   {
@@ -365,15 +439,13 @@ public:
     return idx;
   }
 
-  int get_class_index()
+  int get_class_index() const
   {
     return get_class_idx();
   }
 
   frustum()
   {
-    for( int c = 0; c < 6; ++c )
-      planes[c] = new plane();
   }
 
   void set_up( const mm::camera<float>& cam, const mm::frame<float>& f )
@@ -410,18 +482,16 @@ public:
     points[FBL] = fbl;
     points[FBR] = fbr;
 
-    static_cast<plane*>( planes[TOP] )->set_up( ntr, ntl, ftl );
-    static_cast<plane*>( planes[BOTTOM] )->set_up( nbl, nbr, fbr );
-    static_cast<plane*>( planes[LEFT] )->set_up( ntl, nbl, fbl );
-    static_cast<plane*>( planes[RIGHT] )->set_up( nbr, ntr, fbr );
-    static_cast<plane*>( planes[NEAR] )->set_up( ntl, ntr, nbr );
-    static_cast<plane*>( planes[FAR] )->set_up( ftr, ftl, fbl );
+    planes[TOP].set_up( ntr, ntl, ftl );
+    planes[BOTTOM].set_up( nbl, nbr, fbr );
+    planes[LEFT].set_up( ntl, nbl, fbl );
+    planes[RIGHT].set_up( nbr, ntr, fbr );
+    planes[NEAR].set_up( ntl, ntr, nbr );
+    planes[FAR].set_up( ftr, ftl, fbl );
   }
 
-  std::vector<mm::vec3> get_vertices()
+  void get_vertices( std::vector<mm::vec3>& v ) const
   {
-	std::vector<mm::vec3> v;
-
     //top
     v.push_back( points[NTL] );
     v.push_back( points[NTR] );
@@ -440,7 +510,7 @@ public:
     v.push_back( points[FBR] );
     v.push_back( points[NBR] );
 
-	//left
+    //left
     v.push_back( points[NTL] );
     v.push_back( points[FTL] );
     v.push_back( points[NBL] );
@@ -448,7 +518,7 @@ public:
     v.push_back( points[NBL] );
     v.push_back( points[FTL] );
     v.push_back( points[FBL] );
-    
+
     //right
     v.push_back( points[NTR] );
     v.push_back( points[NBR] );
@@ -475,8 +545,6 @@ public:
     v.push_back( points[FTR] );
     v.push_back( points[FBR] );
     v.push_back( points[FBL] );
-
-	return v;
   }
 };
 
@@ -485,13 +553,13 @@ namespace inner
   //only tells if the sphere is on the right side of the plane!
   static bool is_on_right_side_sp( shape* aa, shape* bb )
   {
-    auto a = static_cast<sphere*>(aa);
-    auto b = static_cast<plane*>(bb);
+    auto a = static_cast<sphere*>( aa );
+    auto b = static_cast<plane*>( bb );
 
-    float dist = b->distance( a->center );
+    float dist = b->distance( a->get_center() );
     //dist + radius == how far is the sphere from the plane (usable when we want to do lod using the near plane)
 
-    if( dist < -a->radius )
+    if( dist < -a->get_radius() )
       return false;
 
     return true;
@@ -499,16 +567,16 @@ namespace inner
 
   static bool is_on_right_side_ps( shape* aa, shape* bb )
   {
-    return is_on_right_side_sp(bb, aa);
+    return is_on_right_side_sp( bb, aa );
   }
 
   //only tells if the sphere is on the right side of the plane!
   static bool is_on_right_side_ap( shape* aa, shape* bb )
   {
-    auto a = static_cast<aabb*>(aa);
-    auto b = static_cast<plane*>(bb);
+    auto a = static_cast<aabb*>( aa );
+    auto b = static_cast<plane*>( bb );
 
-    if( b->distance( a->get_pos_vertex( b->normal ) ) < 0 )
+    if( b->distance( a->get_pos_vertex( b->get_normal() ) ) < 0 )
       return false;
 
     return true;
@@ -516,18 +584,18 @@ namespace inner
 
   static bool is_on_right_side_pa( shape* aa, shape* bb )
   {
-    return is_on_right_side_ap(bb, aa);
+    return is_on_right_side_ap( bb, aa );
   }
 
-  static bool intersect_ss( shape* aa, shape* bb )
+  static bool is_intersecting_ss( shape* aa, shape* bb )
   {
-    auto a = static_cast<sphere*>(aa);
-    auto b = static_cast<sphere*>(bb);
+    auto a = static_cast<sphere*>( aa );
+    auto b = static_cast<sphere*>( bb );
 
-    mm::vec3 diff = a->center - b->center;
+    mm::vec3 diff = a->get_center() - b->get_center();
     float dist = mm::dot( diff, diff );
 
-    float rad_sum = b->radius + a->radius;
+    float rad_sum = b->get_radius() + a->get_radius();
 
     if( dist > rad_sum * rad_sum ) //squared distance check
       return false;
@@ -536,89 +604,92 @@ namespace inner
   }
 
   //checks if a sphere intersects a plane
-  static bool intersect_sp( shape* aa, shape* bb )
+  static bool is_intersecting_sp( shape* aa, shape* bb )
   {
-    auto a = static_cast<sphere*>(aa);
-    auto b = static_cast<plane*>(bb);
+    auto a = static_cast<sphere*>( aa );
+    auto b = static_cast<plane*>( bb );
 
-    float dist = b->distance( a->center );
+    float dist = b->distance( a->get_center() );
 
-    if( abs( dist ) <= a->radius )
+    if( abs( dist ) <= a->get_radius() )
       return true;
 
     return false;
   }
 
-  static bool intersect_ps( shape* aa, shape* bb )
+  static bool is_intersecting_ps( shape* aa, shape* bb )
   {
-    return intersect_sp(bb, aa);
+    return is_intersecting_sp( bb, aa );
   }
 
-  static bool intersect_pp( shape* aa, shape* bb )
+  static bool is_intersecting_pp( shape* aa, shape* bb )
   {
-    auto a = static_cast<plane*>(aa);
-    auto b = static_cast<plane*>(bb);
+    auto a = static_cast<plane*>( aa );
+    auto b = static_cast<plane*>( bb );
 
-    mm::vec3 vector = mm::cross( a->normal, b->normal );
+    mm::vec3 vector = mm::cross( a->get_normal(), b->get_normal() );
 
     //if the cross product yields a null vector
     //then the angle is either 0 or 180
     //that is the two normals are parallel
     // sin(alpha) = 0
     // ==> |a| * |b| * sin(alpha) = 0
-    if( mm::equal( vector, mm::vec3( 0 ) ) )
+    if( mm::all( mm::equal( vector, mm::vec3( 0 ) ) ) )
       return false;
 
     return true;
   }
 
-  static bool intersect_aa( shape* aa, shape* bb )
+  static bool is_intersecting_aa( shape* aa, shape* bb )
   {
-    auto a = static_cast<aabb*>(aa);
-    auto b = static_cast<aabb*>(bb);
+    auto a = static_cast<aabb*>( aa );
+    auto b = static_cast<aabb*>( bb );
 
-    mm::vec3 t = b->pos - a->pos;
+    mm::vec3 t = b->get_pos() - a->get_pos();
 
-    if( abs( t.x ) > ( a->extents.x + b->extents.x ) )
+    mm::vec3 aextent = a->get_extents();
+    mm::vec3 bextent = b->get_extents();
+
+    if( abs( t.x ) > ( aextent.x + bextent.x ) )
       return false;
 
-    if( abs( t.y ) > ( a->extents.y + b->extents.y ) )
+    if( abs( t.y ) > ( aextent.y + bextent.y ) )
       return false;
 
-    if( abs( t.z ) > ( a->extents.z + b->extents.z ) )
+    if( abs( t.z ) > ( aextent.z + bextent.z ) )
       return false;
 
     return true;
   }
 
-  static bool intersect_as( shape* aa, shape* bb )
+  static bool is_intersecting_as( shape* aa, shape* bb )
   {
-    auto a = static_cast<aabb*>(aa);
-    auto b = static_cast<sphere*>(bb);
+    auto a = static_cast<aabb*>( aa );
+    auto b = static_cast<sphere*>( bb );
 
     //square distance check between spheres and aabbs
-    mm::vec3 vec = b->center - mm::clamp( a->pos + (b->center - a->pos), a->min, a->max );
+    mm::vec3 vec = b->get_center() - mm::clamp( a->get_pos() + ( b->get_center() - a->get_pos() ), a->min, a->max );
 
     float sqlength = mm::dot( vec, vec );
 
-    if( sqlength > b->radius * b->radius )
+    if( sqlength > b->get_radius() * b->get_radius() )
       return false;
 
     return true;
   }
 
-  static bool intersect_sa( shape* aa, shape* bb )
+  static bool is_intersecting_sa( shape* aa, shape* bb )
   {
-    return intersect_as(bb, aa);
+    return is_intersecting_as( bb, aa );
   }
 
-  static bool intersect_ap( shape* aa, shape* bb )
+  static bool is_intersecting_ap( shape* aa, shape* bb )
   {
-    auto a = static_cast<aabb*>(aa);
-    auto b = static_cast<plane*>(bb);
+    auto a = static_cast<aabb*>( aa );
+    auto b = static_cast<plane*>( bb );
 
-    mm::vec3 p = a->get_pos_vertex( b->normal );
-    mm::vec3 n = a->get_neg_vertex( b->normal );
+    mm::vec3 p = a->get_pos_vertex( b->get_normal() );
+    mm::vec3 n = a->get_neg_vertex( b->get_normal() );
 
     float dist_p = b->distance( p );
     float dist_n = b->distance( n );
@@ -630,38 +701,38 @@ namespace inner
     return true;
   }
 
-  static bool intersect_pa( shape* aa, shape* bb )
+  static bool is_intersecting_pa( shape* aa, shape* bb )
   {
-    return intersect_ap(bb, aa);
+    return is_intersecting_ap( bb, aa );
   }
 
-  static bool intersect_fs( shape* aa, shape* bb )
+  static bool is_intersecting_fs( shape* aa, shape* bb )
   {
-    auto a = static_cast<frustum*>(aa);
+    auto a = static_cast<frustum*>( aa );
 
     for( int c = 0; c < 6; ++c )
     {
-      if( !is_on_right_side_ps( a->planes[c], bb ) )
+      if( !is_on_right_side_ps( &a->planes[c], bb ) )
         return false;
     }
 
     return true;
   }
 
-  static bool intersect_sf( shape* aa, shape* bb )
+  static bool is_intersecting_sf( shape* aa, shape* bb )
   {
-    return intersect_fs(bb, aa);
+    return is_intersecting_fs( bb, aa );
   }
 
-  static bool intersect_fa( shape* aa, shape* bb )
+  static bool is_intersecting_fa( shape* aa, shape* bb )
   {
-    auto a = static_cast<frustum*>(aa);
-    auto b = static_cast<aabb*>(bb);
+    auto a = static_cast<frustum*>( aa );
+    auto b = static_cast<aabb*>( bb );
 
     bool res = true;
     for( int c = 0; c < 6; ++c )
     {
-      if( !bb->is_on_right_side(a->planes[c]) )
+      if( !bb->is_on_right_side( &a->planes[c] ) )
       {
         res = false;
         break;
@@ -670,138 +741,21 @@ namespace inner
     return res;
   }
 
-  static bool intersect_af( shape* aa, shape* bb )
+  static bool is_intersecting_af( shape* aa, shape* bb )
   {
-    return intersect_fa(bb, aa);
-  }
-  
-  template <typename T>
-  static void sort3(T& t1, T& t2, T& t3)
-  {
-    if (t1 > t2) {
-      T tmp = t2;
-      t2 = t1;
-      t1 = tmp;
-    }
-    
-    if (t2 > t3) {
-      T tmp = t3;
-      t3 = t2;
-      t2 = tmp;
-    }
-    
-    if (t1 > t2) {
-      T tmp = t2;
-      t2 = t1;
-      t1 = tmp;
-    }
-  }
-
-  //TODO test this
-  static bool intersect_ff( shape* aa, shape* bb )
-  {
-    auto a = static_cast<frustum*>(aa);
-    auto b = static_cast<frustum*>(bb);
-
-    /* PLANES-VERTICES CHECK (uncomment if it speeds up this function) */
-	// this code does an early out, if one of frustum A's planes has all of
-	// frustum B's vertices on the "wrong" side (sufficient criteria for non-intersection)
-    /*bool res = true;
-    for( int c = 0; c < 6; ++c )
-    {
-	  bool res_pt = true;
-	  for( int d = 0; d < 8; ++d ) {
-		res_pt = res_pt && (static_cast<plane*>(a->planes[c])->distance(b->points[d]) >= 0);
-	    if( !res_pt )
-        {
-          break;
-        }
-	  }
-	  if( res_pt )
-	  {
-		  return false;
-	  }
-    }*/
-	/* END OF PLANES-VERTICES CHECK */
-
-	auto tris_a = a->get_vertices();
-	auto tris_b = b->get_vertices();
-
-	for( int c = 0; c < 6; ++c )
-    {
-	  for( int d = 0; d < 6; ++d )
-      {
-		auto plane_a = static_cast<plane*>(a->planes[c]);
-		auto plane_b = static_cast<plane*>(b->planes[d]);
-
-		// Compute direction of line common to both planes (0 == coplanar)
-		auto intersection_ray_dir_nonorm = mm::cross( plane_a->normal, plane_b->normal );
-		
-		// Early out if one triangle is on a single side of the other's plane
-		mm::vec3 side_a( plane_a->distance( tris_b[3*d+0] ),
-						 plane_a->distance( tris_b[3*d+1] ),
-						 plane_a->distance( tris_b[3*d+2] ) );
-		
-		// Early out if the triangles are in different parallel planes
-		if ( mm::equal( intersection_ray_dir_nonorm, mm::vec3( 0 ) )
-		     && ( fabs( side_a.x ) > 0.0001f ) )
-		{
-		  continue;
-		}
-		
-		// Early out if a triangle is on one side of the other's plane
-		if( mm::greaterThanEqual(side_a, mm::vec3( 0 ))
-		    || mm::lessThanEqual(side_a, mm::vec3( 0 )) )
-		{
-		  continue;
-		}
-		
-		mm::vec3 side_b( plane_b->distance( tris_a[3*d+0] ),
-						 plane_b->distance( tris_a[3*d+1] ),
-						 plane_b->distance( tris_a[3*d+2] ) );
-		
-		// Check the other way around too (the previous check does not catch all cases)
-		if( mm::greaterThanEqual(side_b, mm::vec3( 0 ))
-		    || mm::lessThanEqual(side_b, mm::vec3( 0 )) )
-		{
-		  continue;
-		}
-		
-		// At this point we know that there's a line that crosses both triangles
-		auto intersection_ray_dir = mm::normalize( intersection_ray_dir_nonorm );
-        
-        float dv01 = mm::dot( tris_a[3*d+0], intersection_ray_dir );
-        float dv02 = mm::dot( tris_a[3*d+1], intersection_ray_dir );
-        float dv03 = mm::dot( tris_a[3*d+2], intersection_ray_dir );
-        
-        float dv11 = mm::dot( tris_b[3*d+0], intersection_ray_dir );
-        float dv12 = mm::dot( tris_b[3*d+1], intersection_ray_dir );
-        float dv13 = mm::dot( tris_b[3*d+2], intersection_ray_dir );
-        
-        sort3(dv01, dv02, dv03);
-        sort3(dv11, dv12, dv13);
-        
-        if( (dv01 + dv02) <= (dv12 + dv13) && (dv02 + dv03) >= (dv11 + dv12) )
-        {
-          return true;
-        }
-        
-	  }
-	}
-
-    return false;
+    return is_intersecting_fa( bb, aa );
   }
 
   //is a inside b?
   static bool is_inside_sa( shape* aa, shape* bb )
   {
-    auto a = static_cast<sphere*>(aa);
-    auto b = static_cast<aabb*>(bb);
+    auto a = static_cast<sphere*>( aa );
+    auto b = static_cast<aabb*>( bb );
 
-    mm::vec3 spheremax = a->center + a->radius;
-    mm::vec3 spheremin = a->center - a->radius;
+    mm::vec3 spheremax = a->get_center() + a->get_radius();
+    mm::vec3 spheremin = a->get_center() - a->get_radius();
 
-    if( mm::lessThanEqual(spheremax, b->max) && mm::greaterThanEqual(spheremin, b->min) )
+    if( mm::all( mm::lessThanEqual( spheremax, b->max ) ) && mm::all( mm::greaterThanEqual( spheremin, b->min ) ) )
       return true;
 
     return false;
@@ -810,14 +764,14 @@ namespace inner
   //is a inside b?
   static bool is_inside_as( shape* aa, shape* bb )
   {
-    auto a = static_cast<aabb*>(aa);
-    auto b = static_cast<sphere*>(bb);
+    auto a = static_cast<aabb*>( aa );
+    auto b = static_cast<sphere*>( bb );
 
-    mm::vec3 minvec = a->min - b->center;
-    mm::vec3 maxvec = a->max - b->center;
-    float sqrmaxlength = mm::dot(maxvec, maxvec);
-    float sqrminlength = mm::dot(minvec, minvec);
-    float sqrradius = b->radius * b->radius;
+    mm::vec3 minvec = a->min - b->get_center();
+    mm::vec3 maxvec = a->max - b->get_center();
+    float sqrmaxlength = mm::dot( maxvec, maxvec );
+    float sqrminlength = mm::dot( minvec, minvec );
+    float sqrradius = b->get_radius() * b->get_radius();
 
     if( sqrmaxlength <= sqrradius && sqrminlength <= sqrradius )
       return true;
@@ -828,10 +782,10 @@ namespace inner
   //is a inside b?
   static bool is_inside_aa( shape* aa, shape* bb )
   {
-    auto a = static_cast<aabb*>(aa);
-    auto b = static_cast<aabb*>(bb);
+    auto a = static_cast<aabb*>( aa );
+    auto b = static_cast<aabb*>( bb );
 
-    if( mm::greaterThanEqual( a->min, b->min ) && mm::lessThanEqual( a->max, b->max ) )
+    if( mm::all( mm::greaterThanEqual( a->min, b->min ) ) && mm::all( mm::lessThanEqual( a->max, b->max ) ) )
       return true;
 
     return false;
@@ -840,21 +794,21 @@ namespace inner
   //is a inside b?
   static bool is_inside_ss( shape* aa, shape* bb )
   {
-    auto a = static_cast<sphere*>(aa);
-    auto b = static_cast<sphere*>(bb);
+    auto a = static_cast<sphere*>( aa );
+    auto b = static_cast<sphere*>( bb );
 
-    mm::vec3 spheredist = b->center - a->center;
+    mm::vec3 spheredist = b->get_center() - a->get_center();
 
-    if( mm::dot(spheredist, spheredist) <= b->radius * b->radius )
+    if( mm::dot( spheredist, spheredist ) <= b->get_radius() * b->get_radius() )
       return true;
 
     return false;
   }
 
-  static bool intersect_rt( shape* aa, shape* bb )
+  static bool is_intersecting_rt( shape* aa, shape* bb )
   {
-    auto a = static_cast<ray*>(aa);
-    auto b = static_cast<triangle*>(bb);
+    auto a = static_cast<ray*>( aa );
+    auto b = static_cast<triangle*>( bb );
 
     mm::vec3 e = b->k - b->m;
     mm::vec3 f = b->l - b->m;
@@ -862,102 +816,240 @@ namespace inner
     mm::vec3 g = a->origin - b->m;
 
     //apply barycentric triangle math
-    float t = 1.0f / dot( cross( a->direction, f ), e );
-    vec3 tkl = t * vec3( dot( cross( g, e ), f ),
-                         dot( cross( a->direction, f ), g ),
-                         dot( cross( g, e ), a->direction ) );
+    float t = 1.0f / mm::dot( mm::cross( a->direction, f ), e );
+    mm::vec3 tkl = t * mm::vec3( mm::dot( mm::cross( g, e ), f ),
+      mm::dot( mm::cross( a->direction, f ), g ),
+      mm::dot( mm::cross( g, e ), a->direction ) );
 
     //barycentric coordinate check
     //if between 0...1 the point is inside
     return tkl.y > 0 && tkl.z > 0 && ( tkl.y + tkl.z ) < 1;
   }
 
-  static bool intersect_tr( shape* aa, shape* bb )
+  static mm::vec2 intersect_rt( shape* aa, shape* bb )
+  {
+    auto a = static_cast<ray*>( aa );
+    auto b = static_cast<triangle*>( bb );
+
+    //klm
+    //TODO http://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/ray-triangle-intersection-geometric-solution
+  }
+
+  static bool is_intersecting_tr( shape* aa, shape* bb )
+  {
+    return is_intersecting_rt( bb, aa );
+  }
+
+  static mm::vec2 intersect_tr( shape* aa, shape* bb )
   {
     return intersect_rt( bb, aa );
   }
 
-  //TODO test it
-  static bool intersect_rs( shape* aa, shape* bb )
+  static bool is_intersecting_rs( shape* aa, shape* bb )
   {
-    auto a = static_cast<ray*>(aa);
-    auto b = static_cast<sphere*>(bb);
+    auto a = static_cast<ray*>( aa );
+    auto b = static_cast<sphere*>( bb );
 
-    mm::vec3 diff = b->center - a->origin;
-    float dist = dot( diff, diff ) - ( b->radius * b->radius );
+    mm::vec3 diff = b->get_center() - a->origin;
+    float dist = mm::dot( diff, diff ) - ( b->get_radius() * b->get_radius() );
 
     if( dist <= 0 )
       return true;
 
-    float dist2 = dot( a->direction, diff );
+    float dist2 = mm::dot( a->direction, diff );
 
     if( dist2 >= 0 )
       return false;
 
-    return (dist2 * dist2 - dist) >= 0;
+    return ( dist2 * dist2 - dist ) >= 0;
   }
 
-  static bool intersect_sr( shape* aa, shape* bb )
+  static mm::vec2 intersect_rs( shape* aa, shape* bb )
+  { //we assume ray dir is a unit vector
+    auto a = static_cast<ray*>( aa );
+    auto b = static_cast<sphere*>( bb );
+
+    mm::vec3 x = a->origin - b->get_center();
+
+    float bbb = mm::dot( a->direction, x ) * 2;
+    float ccc = mm::dot( x, x ) - b->get_radius() * b->get_radius();
+
+    float sqr = bbb * bbb - 4 * ccc;
+
+    if( sqr > 0 )
+    {
+      float root = std::sqrt( sqr );
+      float inv_2a = 0.5f;
+
+      float t1 = ( -bbb - root ) * inv_2a;
+      float t2 = ( -bbb + root ) * inv_2a;
+
+      if( t1 < 0 )
+      {
+        if( t2 < 0 )
+        {
+          return INVALID;
+        }
+        else
+        {
+          return mm::vec2( t2, t1 );
+        }
+      }
+      else
+      {
+        return mm::vec2( t1, t2 );
+      }
+    }
+
+    return INVALID;
+  }
+
+  static bool is_intersecting_sr( shape* aa, shape* bb )
+  {
+    return is_intersecting_rs( bb, aa );
+  }
+
+  static mm::vec2 intersect_sr( shape* aa, shape* bb )
   {
     return intersect_rs( bb, aa );
   }
 
-  //TODO make it work
-  static bool intersect_ra( shape* aa, shape* bb )
+  static bool is_intersecting_ra( shape* aa, shape* bb )
   {
-    auto a = static_cast<ray*>(aa);
-    auto b = static_cast<aabb*>(bb);
+    aabb* ab = static_cast<aabb*>( bb );
+    ray* r = static_cast<ray*>( aa );
+    mm::vec3 invR;
 
-    float tmin = -FLT_MAX;
-    float tmax = FLT_MAX;
-
+    // compute intersection of ray with all six bbox planes
+#ifdef _DEBUG
+    //in debug mode, pay attention to asserts
     for( int c = 0; c < 3; ++c )
     {
-      if( a->direction[c] != 0 )
+      if( mm::impl::is_eq( r->direction[c], 0 ) )
       {
-        float inv_dir = 1.0f / a->direction[c];
-        float tx1 = (b->min[c] - a->origin[c]) * inv_dir;
-        float tx2 = (b->max[c] - a->origin[c]) * inv_dir;
-        tmin = max(tmin, min(tx1, tx2));
-        tmax = min(tmax, max(tx1, tx2));
-
-        if( tmin > tmax || tmax < 0 )
-          return false;
+        invR[c] = FLT_MAX;
       }
       else
       {
-        if( a->origin[c] < b->min[c] && a->origin[c] > b->max[c] )
-          return false;
+        invR[c] = 1.0f / r->direction[c];
       }
     }
+#else
+    //in release mode we dgaf about div by zero
+    invR = 1.0f / r->direction;
+#endif
 
-    return true;
+    mm::vec3 tbot = invR * ( ab->min - r->origin );
+    mm::vec3 ttop = invR * ( ab->max - r->origin );
+
+    // re-order intersections to find smallest and largest on each axis
+    mm::vec3 tmin = mm::min( ttop, tbot );
+    mm::vec3 tmax = mm::max( ttop, tbot );
+
+    // find the largest tmin and the smallest tmax
+    float largest_tmin = mm::max( mm::max( tmin.x, tmin.y ), mm::max( tmin.x, tmin.z ) );
+    float smallest_tmax = mm::min( mm::min( tmax.x, tmax.y ), mm::min( tmax.x, tmax.z ) );
+
+    return smallest_tmax > largest_tmin ? true : false;
   }
 
-  static bool intersect_ar( shape* aa, shape* bb )
+  static mm::vec2 intersect_ra( shape* aa, shape* bb )
+  {
+    aabb* ab = static_cast<aabb*>( bb );
+    ray* r = static_cast<ray*>( aa );
+    mm::vec3 invR;
+
+    // compute intersection of ray with all six bbox planes
+#ifdef _DEBUG
+    //in debug mode, pay attention to asserts
+    for( int c = 0; c < 3; ++c )
+    {
+      if( mm::impl::is_eq( r->direction[c], 0 ) )
+      {
+        invR[c] = FLT_MAX;
+      }
+      else
+      {
+        invR[c] = 1.0f / r->direction[c];
+      }
+    }
+#else
+    //in release mode we dgaf about div by zero
+    invR = 1.0f / r->direction;
+#endif
+
+    mm::vec3 tbot = invR * ( ab->min - r->origin );
+    mm::vec3 ttop = invR * ( ab->max - r->origin );
+
+    // re-order intersections to find smallest and largest on each axis
+    mm::vec3 tmin = mm::min( ttop, tbot );
+    mm::vec3 tmax = mm::max( ttop, tbot );
+
+    // find the largest tmin and the smallest tmax
+    float largest_tmin = mm::max( mm::max( tmin.x, tmin.y ), mm::max( tmin.x, tmin.z ) );
+    float smallest_tmax = mm::min( mm::min( tmax.x, tmax.y ), mm::min( tmax.x, tmax.z ) );
+
+    return smallest_tmax > largest_tmin ? ( largest_tmin >= 0 ? mm::vec2( largest_tmin, smallest_tmax ) : mm::vec2( smallest_tmax, largest_tmin ) ) : INVALID;
+  }
+
+  static bool is_intersecting_ar( shape* aa, shape* bb )
+  {
+    return is_intersecting_ra( bb, aa );
+  }
+
+  static mm::vec2 intersect_ar( shape* aa, shape* bb )
   {
     return intersect_ra( bb, aa );
   }
 
-  //TODO test it
-  static bool intersect_rp( shape* aa, shape* bb )
+  static bool is_intersecting_rp( shape* aa, shape* bb )
   {
-    auto a = static_cast<ray*>(aa);
-    auto b = static_cast<plane*>(bb);
+    auto a = static_cast<ray*>( aa );
+    auto b = static_cast<plane*>( bb );
 
-    float denom = dot( b->normal, a->direction );
+    float denom = mm::dot( a->direction, b->get_normal() );
 
-    if( denom > 0 )
+    if( !mm::impl::is_eq( denom, 0.0f ) )
     {
-      vec3 ray_to_plane = b->point - a->origin;
-      float t = dot(ray_to_plane, b->normal) / denom;
-      return t >= 0;
+      float t = mm::dot( b->get_point() - a->origin, b->get_normal() );
+      float tmp = t * denom;
+
+      if( tmp > 0.0f )
+      {
+        return true;
+      }
     }
 
     return false;
   }
 
-  static bool intersect_pr( shape* aa, shape* bb )
+  static mm::vec2 intersect_rp( shape* aa, shape* bb )
+  {
+    auto a = static_cast<ray*>( aa );
+    auto b = static_cast<plane*>( bb );
+
+    float denom = mm::dot( a->direction, b->get_normal() );
+
+    if( !mm::impl::is_eq( denom, 0.0f ) )
+    {
+      float t = mm::dot( b->get_point() - a->origin, b->get_normal() );
+      float tmp = t * denom;
+
+      if( tmp > 0.0f )
+      {
+        return t / denom;
+      }
+    }
+
+    return INVALID;
+  }
+
+  static bool is_intersecting_pr( shape* aa, shape* bb )
+  {
+    return is_intersecting_rp( bb, aa );
+  }
+
+  static mm::vec2 intersect_pr( shape* aa, shape* bb )
   {
     return intersect_rp( bb, aa );
   }
@@ -967,47 +1059,57 @@ void shape::set_up_intersection()
 {
   //order doesnt matter
   _is_on_right_side.set_elements( 6 );
-  _is_on_right_side.add<sphere, plane>(inner::is_on_right_side_sp);
-  _is_on_right_side.add<aabb, plane>(inner::is_on_right_side_ap);
-  _is_on_right_side.add<plane, sphere>(inner::is_on_right_side_ps);
-  _is_on_right_side.add<plane, aabb>(inner::is_on_right_side_pa);
+  _is_on_right_side.add<sphere, plane>( inner::is_on_right_side_sp );
+  _is_on_right_side.add<aabb, plane>( inner::is_on_right_side_ap );
+  _is_on_right_side.add<plane, sphere>( inner::is_on_right_side_ps );
+  _is_on_right_side.add<plane, aabb>( inner::is_on_right_side_pa );
 
   /////////////
-  _intersects.set_elements( 6 );
-  _intersects.add<aabb, aabb>(inner::intersect_aa);
-  _intersects.add<aabb, sphere>(inner::intersect_as);
-  _intersects.add<aabb, ray>(inner::intersect_ar);
-  _intersects.add<aabb, frustum>(inner::intersect_af);
-  _intersects.add<aabb, plane>(inner::intersect_ap);
+  _is_intersecting.set_elements( 6 );
+  _is_intersecting.add<aabb, aabb>( inner::is_intersecting_aa );
+  _is_intersecting.add<aabb, sphere>( inner::is_intersecting_as );
+  _is_intersecting.add<aabb, ray>( inner::is_intersecting_ar );
+  _is_intersecting.add<aabb, frustum>( inner::is_intersecting_af );
+  _is_intersecting.add<aabb, plane>( inner::is_intersecting_ap );
 
-  _intersects.add<plane, aabb>(inner::intersect_pa);
-  _intersects.add<plane, sphere>(inner::intersect_ps);
-  _intersects.add<plane, ray>(inner::intersect_pr);
-  _intersects.add<plane, plane>(inner::intersect_pp);
+  _is_intersecting.add<plane, aabb>( inner::is_intersecting_pa );
+  _is_intersecting.add<plane, sphere>( inner::is_intersecting_ps );
+  _is_intersecting.add<plane, ray>( inner::is_intersecting_pr );
+  _is_intersecting.add<plane, plane>( inner::is_intersecting_pp );
 
-  _intersects.add<sphere, aabb>(inner::intersect_sa);
-  _intersects.add<sphere, sphere>(inner::intersect_ss);
-  _intersects.add<sphere, ray>(inner::intersect_sr);
-  _intersects.add<sphere, frustum>(inner::intersect_sf);
-  _intersects.add<sphere, plane>(inner::intersect_sp);
-  
-  _intersects.add<frustum, aabb>(inner::intersect_fa);
-  _intersects.add<frustum, sphere>(inner::intersect_fs);
-  _intersects.add<frustum, frustum>(inner::intersect_ff);
-  
-  _intersects.add<ray, aabb>(inner::intersect_ra);
-  _intersects.add<ray, sphere>(inner::intersect_rs);
-  _intersects.add<ray, triangle>(inner::intersect_rt);
-  _intersects.add<ray, plane>(inner::intersect_rp);
-  
-  _intersects.add<triangle, ray>(inner::intersect_tr);
+  _is_intersecting.add<sphere, aabb>( inner::is_intersecting_sa );
+  _is_intersecting.add<sphere, sphere>( inner::is_intersecting_ss );
+  _is_intersecting.add<sphere, ray>( inner::is_intersecting_sr );
+  _is_intersecting.add<sphere, frustum>( inner::is_intersecting_sf );
+  _is_intersecting.add<sphere, plane>( inner::is_intersecting_sp );
+
+  _is_intersecting.add<frustum, aabb>( inner::is_intersecting_fa );
+  _is_intersecting.add<frustum, sphere>( inner::is_intersecting_fs );
+  //_is_intersecting.add<frustum, frustum>( inner::is_intersecting_ff ); //TODO
+
+  _is_intersecting.add<ray, aabb>( inner::is_intersecting_ra );
+  _is_intersecting.add<ray, sphere>( inner::is_intersecting_rs );
+  _is_intersecting.add<ray, triangle>( inner::is_intersecting_rt );
+  _is_intersecting.add<ray, plane>( inner::is_intersecting_rp );
+
+  _is_intersecting.add<triangle, ray>( inner::is_intersecting_tr );
 
   //order matters
   _is_inside.set_elements( 6 );
-  _is_inside.add<aabb, aabb>(inner::is_inside_aa);
-  _is_inside.add<aabb, sphere>(inner::is_inside_as);
-  _is_inside.add<sphere, aabb>(inner::is_inside_sa);
-  _is_inside.add<sphere, sphere>(inner::is_inside_ss);
+  _is_inside.add<aabb, aabb>( inner::is_inside_aa );
+  _is_inside.add<aabb, sphere>( inner::is_inside_as );
+  _is_inside.add<sphere, aabb>( inner::is_inside_sa );
+  _is_inside.add<sphere, sphere>( inner::is_inside_ss );
+
+  _intersect.set_elements( 6 );
+  _intersect.add<aabb, ray>( inner::intersect_ar );
+  _intersect.add<ray, aabb>( inner::intersect_ra );
+  _intersect.add<plane, ray>( inner::intersect_pr );
+  _intersect.add<ray, plane>( inner::intersect_rp );
+  _intersect.add<sphere, ray>( inner::intersect_sr );
+  _intersect.add<ray, sphere>( inner::intersect_rs );
+  //_intersect.add<triangle, ray>( inner::intersect_tr ); //TODO
+  //_intersect.add<triangle, ray>( inner::intersect_rt );
 
   //usage
   //is_on_the_right_side.go(new aabb(), new sphere());

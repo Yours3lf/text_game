@@ -17,8 +17,8 @@
 #define FONT_TRANSFORM 6
 #define FONT_FILTER 7
 
-wchar_t buf[2] = {-1, L'\0'};
-std::wstring cachestring = std::wstring(buf) + L" 0123456789aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyzAÁBCDEÉFGHIÍJKLMNOÓÖŐPQRSTUÚÜŰVWXYZ+!%/=()|$[]<>#&@{},.~-?:_;*`^'\"";
+wchar_t buf[2] = { -1, L'\0' };
+std::wstring cachestring = std::wstring( buf ) + L" 0123456789a�bcde�fghi�jklmno���pqrstu���vwxyzA�BCDE�FGHI�JKLMNO���PQRSTU���VWXYZ+!%/=()|$[]<>#&@{},.~-?:_;*`^'\"";
 
 struct glyph
 {
@@ -27,6 +27,7 @@ struct glyph
   float w;
   float h;
   float texcoords[4];
+  FT_Glyph_Metrics metrics;
   FT_Vector advance;
   FT_UInt glyphid;
   unsigned int cache_index;
@@ -38,7 +39,7 @@ library::library() : the_library( 0 ), tex( 0 ), texsampler_point( 0 ), texsampl
     vbos[c] = 0;
 
   FT_Error error;
-  error = FT_Init_FreeType( ( FT_Library* )&the_library );
+  error = FT_Init_FreeType( (FT_Library*)&the_library );
 
   if( error )
   {
@@ -61,7 +62,7 @@ library::~library()
   if( the_library )
   {
     FT_Error error;
-    error = FT_Done_FreeType( ( FT_Library )the_library );
+    error = FT_Done_FreeType( (FT_Library)the_library );
 
     if( error )
     {
@@ -72,15 +73,15 @@ library::~library()
 
 void library::delete_glyphs()
 {
-  texture_pen = mm::uvec2(1);
+  texture_pen = mm::uvec2( 1 );
   texture_row_h = 0;
-  texsize = mm::uvec2(0);
+  texsize = mm::uvec2( 0 );
 
   font_data.clear();
 
   for( auto& c : instances )
   {
-    (*c->the_face->glyphs).clear();
+    ( *c->the_face->glyphs ).clear();
   }
 }
 
@@ -88,7 +89,11 @@ void library::set_up()
 {
   if( is_set_up ) return;
 
+  texture_pen = mm::uvec2( 0 );
+  texsize = mm::uvec2( 0 );
+
   glGenTextures( 1, &tex );
+
   glGenSamplers( 1, &texsampler_point );
   glGenSamplers( 1, &texsampler_linear );
 
@@ -102,38 +107,57 @@ void library::set_up()
   glSamplerParameteri( texsampler_linear, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
   glSamplerParameteri( texsampler_linear, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 
-  std::vector<mm::uvec3> faces;
-  std::vector<mm::vec2> vertices;
-  std::vector<mm::vec2> texcoords;
-  faces.resize( 2 );
-  vertices.resize( 4 );
-  texcoords.resize( 4 );
+  std::vector<unsigned> faces;
+  std::vector<float> vertices;
+  std::vector<float> texcoords;
+  faces.resize( 2 * 3 );
+  vertices.resize( 4 * 2 );
+  texcoords.resize( 4 * 2 );
 
-  faces[0] = mm::uvec3( 2, 1, 0 );
-  faces[1] = mm::uvec3( 0, 3, 2 );
+  faces[0 * 3 + 0] = 2;
+  faces[0 * 3 + 1] = 1;
+  faces[0 * 3 + 2] = 0;
 
-  vertices[0] = mm::vec2( 0, 0 );
-  vertices[1] = mm::vec2( 0, 1 );
-  vertices[2] = mm::vec2( 1, 1 );
-  vertices[3] = mm::vec2( 1, 0 );
+  faces[1 * 3 + 0] = 0;
+  faces[1 * 3 + 1] = 3;
+  faces[1 * 3 + 2] = 2;
 
-  texcoords[0] = mm::vec2( 0, 0 );
-  texcoords[1] = mm::vec2( 0, 1 );
-  texcoords[2] = mm::vec2( 1, 1 );
-  texcoords[3] = mm::vec2( 1, 0 );
+  vertices[0 * 2 + 0] = 0;
+  vertices[0 * 2 + 1] = 0;
+
+  vertices[1 * 2 + 0] = 0;
+  vertices[1 * 2 + 1] = 1;
+
+  vertices[2 * 2 + 0] = 1;
+  vertices[2 * 2 + 1] = 1;
+
+  vertices[3 * 2 + 0] = 1;
+  vertices[3 * 2 + 1] = 0;
+
+  texcoords[0 * 2 + 0] = 0;
+  texcoords[0 * 2 + 1] = 0;
+
+  texcoords[1 * 2 + 0] = 0;
+  texcoords[1 * 2 + 1] = 1;
+
+  texcoords[2 * 2 + 0] = 1;
+  texcoords[2 * 2 + 1] = 1;
+
+  texcoords[3 * 2 + 0] = 1;
+  texcoords[3 * 2 + 1] = 0;
 
   glGenVertexArrays( 1, &vao );
   glBindVertexArray( vao );
 
   glGenBuffers( 1, &vbos[FONT_VERTEX] );
   glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_VERTEX] );
-  glBufferData( GL_ARRAY_BUFFER, sizeof( mm::vec2 ) * vertices.size(), &vertices[0], GL_STATIC_DRAW );
+  glBufferData( GL_ARRAY_BUFFER, sizeof(float)* 2 * vertices.size(), &vertices[0], GL_STATIC_DRAW );
   glEnableVertexAttribArray( FONT_VERTEX );
   glVertexAttribPointer( FONT_VERTEX, 2, GL_FLOAT, false, 0, 0 );
 
   glGenBuffers( 1, &vbos[FONT_TEXCOORD] );
   glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_TEXCOORD] );
-  glBufferData( GL_ARRAY_BUFFER, sizeof( mm::vec2 ) * texcoords.size(), &texcoords[0], GL_STATIC_DRAW );
+  glBufferData( GL_ARRAY_BUFFER, sizeof(float)* 2 * texcoords.size(), &texcoords[0], GL_STATIC_DRAW );
   glEnableVertexAttribArray( FONT_TEXCOORD );
   glVertexAttribPointer( FONT_TEXCOORD, 2, GL_FLOAT, false, 0, 0 );
 
@@ -157,23 +181,22 @@ void library::set_up()
 
   glGenBuffers( 1, &vbos[FONT_FACE] );
   glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, vbos[FONT_FACE] );
-  glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( mm::uvec3 ) * faces.size(), &faces[0], GL_STATIC_DRAW );
-
+  glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned)* 3 * faces.size(), &faces[0], GL_STATIC_DRAW );
   glGenBuffers( 1, &vbos[FONT_TRANSFORM] );
   glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_TRANSFORM] );
-  
+
   for( int c = 0; c < 4; ++c )
   {
     glEnableVertexAttribArray( FONT_TRANSFORM + c );
-    glVertexAttribPointer( FONT_TRANSFORM + c, 4, GL_FLOAT, false, sizeof( mm::mat4 ), ((char*)0) + sizeof( mm::vec4 ) * c  );
-    glVertexAttribDivisor( FONT_TRANSFORM + c , 1 );
-  } 
+    glVertexAttribPointer( FONT_TRANSFORM + c, 4, GL_FLOAT, false, sizeof( mm::mat4 ), ( (char*)0 ) + sizeof( mm::vec4 ) * c );
+    glVertexAttribDivisor( FONT_TRANSFORM + c, 1 );
+  }
 
   glGenBuffers( 1, &vbos[FONT_FILTER] );
   glBindBuffer( GL_ARRAY_BUFFER, vbos[FONT_FILTER] );
-  glEnableVertexAttribArray( FONT_FILTER+3 );
-  glVertexAttribPointer( FONT_FILTER+3, 1, GL_FLOAT, false, sizeof( float ), 0 );
-  glVertexAttribDivisor( FONT_FILTER+3, 1 );
+  glEnableVertexAttribArray( FONT_FILTER + 3 );
+  glVertexAttribPointer( FONT_FILTER + 3, 1, GL_FLOAT, false, sizeof( float ), 0 );
+  glVertexAttribDivisor( FONT_FILTER + 3, 1 );
 
   glBindVertexArray( 0 );
 
@@ -203,7 +226,7 @@ bool library::expand_tex()
     texture_pen.y = 1;
     texture_row_h = 0;
 
-    delete [] buf;
+    delete[] buf;
   }
   else
   {
@@ -225,29 +248,31 @@ bool library::expand_tex()
     glTexImage2D( GL_TEXTURE_RECTANGLE, 0, GL_R8, texsize.x, texsize.y, 0, GL_RED, GL_UNSIGNED_BYTE, tmpbuf );
     glTexSubImage2D( GL_TEXTURE_RECTANGLE, 0, 0, 0, texsize.x, tmp_height, GL_RED, GL_UNSIGNED_BYTE, buf );
 
-    delete [] buf;
-    delete [] tmpbuf;
+    delete[] buf;
+    delete[] tmpbuf;
   }
 
   return true;
 }
 
-font_inst::face::face() : size( 0 ), the_face( 0 ), glyphs( 0 ) {}
+font_inst::face::face() : size( 0 ), the_face( 0 ), glyphs( 0 )
+{
+}
 
 font_inst::face::face( const std::string& filename, unsigned int index )
 {
   FT_Error error;
-  error = FT_New_Face( ( FT_Library )library::get().get_library(), filename.c_str(), index, ( FT_Face* )&the_face );
+  error = FT_New_Face( (FT_Library)library::get().get_library(), filename.c_str(), index, (FT_Face*)&the_face );
 
   upos = 0;
   uthick = 0;
 
-  FT_Matrix matrix = { (int)((1.0 / 64.0f) * 0x10000L),
-                       (int)((0.0)         * 0x10000L),
-                       (int)((0.0)         * 0x10000L),
-                       (int)((1.0)         * 0x10000L) };
-  FT_Select_Charmap( *( FT_Face* )&the_face, FT_ENCODING_UNICODE );
-  FT_Set_Transform( *( FT_Face* )&the_face, &matrix, NULL );
+  FT_Matrix matrix = { (int)( ( 1.0 / 64.0f ) * 0x10000L ),
+                       (int)( ( 0.0 ) * 0x10000L ),
+                       (int)( ( 0.0 ) * 0x10000L ),
+                       (int)( ( 1.0 ) * 0x10000L ) };
+  FT_Select_Charmap( *(FT_Face*)&the_face, FT_ENCODING_UNICODE );
+  FT_Set_Transform( *(FT_Face*)&the_face, &matrix, NULL );
 
   glyphs = new std::map< unsigned int, std::map<uint32_t, glyph> >();
 
@@ -261,7 +286,7 @@ font_inst::face::face( const std::string& filename, unsigned int index )
 font_inst::face::~face()
 {
   //TODO invalidate glyphs in the library, and its tex
-  FT_Done_Face( ( FT_Face )the_face );
+  FT_Done_Face( (FT_Face)the_face );
   delete glyphs;
 }
 
@@ -271,21 +296,21 @@ void font_inst::face::set_size( unsigned int val )
   {
     size = val;
 
-    FT_Set_Char_Size( ( FT_Face )the_face, size * 100.0f * 64.0f, 0.0f, 72 * 64.0f, 72 );
-    asc = ( ( ( FT_Face )the_face )->size->metrics.ascender / 64.0f ) / 100.0f;
-    desc = ( ( ( FT_Face )the_face )->size->metrics.descender / 64.0f ) / 100.0f;
-    h = ( ( ( FT_Face )the_face )->size->metrics.height / 64.0f ) / 100.0f;
+    FT_Set_Char_Size( (FT_Face)the_face, size * 100.0f * 64.0f, 0.0f, 72 * 64.0f, 72 );
+    asc = ( ( (FT_Face)the_face )->size->metrics.ascender / 64.0f ) / 100.0f;
+    desc = ( ( (FT_Face)the_face )->size->metrics.descender / 64.0f ) / 100.0f;
+    h = ( ( (FT_Face)the_face )->size->metrics.height / 64.0f ) / 100.0f;
     gap = h - asc + desc;
-    
-    upos = ( ( FT_Face )the_face )->underline_position / (64.0f*64.0f) * size;
+
+    upos = ( (FT_Face)the_face )->underline_position / ( 64.0f*64.0f ) * size;
     upos = std::round( upos );
-    
+
     if( upos > -2 )
     {
       upos = -2;
     }
 
-    uthick = ( ( FT_Face )the_face )->underline_thickness / (64.0f*64.0f) * size;
+    uthick = ( (FT_Face)the_face )->underline_thickness / ( 64.0f*64.0f ) * size;
     uthick = std::round( uthick );
 
     if( uthick < 1 )
@@ -293,7 +318,7 @@ void font_inst::face::set_size( unsigned int val )
       uthick = 1;
     }
 
-    FT_Set_Char_Size( ( FT_Face )the_face, size * 64.0f, 0.0f, 72 * 64.0f, 72 );
+    FT_Set_Char_Size( (FT_Face)the_face, size * 64.0f, 0.0f, 72 * 64.0f, 72 );
   }
 }
 
@@ -305,26 +330,26 @@ bool font_inst::face::load_glyph( unsigned int val )
 
     FT_GlyphSlot theglyph = FT_GlyphSlot();
 
-    if( val != wchar_t(-1) )
+    if( val != wchar_t( -1 ) )
     {
-      error = FT_Load_Char( ( FT_Face )the_face, ( const FT_UInt )val, FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT );
+      error = FT_Load_Char( (FT_Face)the_face, (const FT_UInt)val, FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT );
 
       if( error )
       {
-        std::cerr << "Error loading character: " << ( wchar_t )val << std::endl;
+        std::cerr << "Error loading character: " << (wchar_t)val << std::endl;
       }
 
-      theglyph = ( ( FT_Face )the_face )->glyph;
+      theglyph = ( (FT_Face)the_face )->glyph;
     }
     else
     {
       theglyph = new FT_GlyphSlotRec_();
       theglyph->advance.x = 0;
       theglyph->advance.y = 0;
-      static unsigned char data[4*4*3] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-                                          -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-                                          -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-                                          -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+      static unsigned char data[4 * 4 * 3] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+                                          -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+                                          -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+                                          -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
       theglyph->bitmap.buffer = data;
       theglyph->bitmap.rows = 4;
       theglyph->bitmap.width = 4;
@@ -343,14 +368,14 @@ bool font_inst::face::load_glyph( unsigned int val )
 
     FT_Bitmap* bitmap = &theglyph->bitmap;
 
-    if( texpen.x + bitmap->width + 1 > ( int )texsize.x )
+    if( texpen.x + bitmap->width + 1 > (int)texsize.x )
     {
       texpen.y += texrowh + 1;
       texpen.x = 1;
       texrowh = 0;
     }
 
-    if( texpen.y + bitmap->rows + 1 > ( int )texsize.y )
+    if( texpen.y + bitmap->rows + 1 > (int)texsize.y )
     {
       if( !library::get().expand_tex() )
       {
@@ -384,7 +409,7 @@ bool font_inst::face::load_glyph( unsigned int val )
     glBindTexture( GL_TEXTURE_RECTANGLE, library::get().get_tex() );
     glTexSubImage2D( GL_TEXTURE_RECTANGLE, 0, texpen.x, texpen.y, bitmap->width, bitmap->rows, GL_RED, GL_UNSIGNED_BYTE, data );
 
-    delete [] data;
+    delete[] data;
 
     if( uplast != 1 )
     {
@@ -393,26 +418,26 @@ bool font_inst::face::load_glyph( unsigned int val )
 
     glyph* g = &( *glyphs )[size][val];
 
-    g->glyphid = FT_Get_Char_Index( ( FT_Face )the_face, ( const FT_ULong )val );
-    
-    g->offset_x = ( float )theglyph->bitmap_left;
-    g->offset_y = ( float )theglyph->bitmap_top;
-    g->w = ( float )bitmap->width;
-    g->h = ( float )bitmap->rows;
+    g->glyphid = FT_Get_Char_Index( (FT_Face)the_face, (const FT_ULong)val );
 
-    if( val != wchar_t(-1) )
+    g->offset_x = (float)theglyph->bitmap_left;
+    g->offset_y = (float)theglyph->bitmap_top;
+    g->w = (float)bitmap->width;
+    g->h = (float)bitmap->rows;
+
+    if( val != wchar_t( -1 ) )
     {
-      g->texcoords[0] = ( float )texpen.x - 0.5f;
-      g->texcoords[1] = ( float )texpen.y - 0.5f;
-      g->texcoords[2] = ( float )texpen.x + ( float )bitmap->width + 0.5f;
-      g->texcoords[3] = ( float )texpen.y + ( float )bitmap->rows + 0.5f;
+      g->texcoords[0] = (float)texpen.x - 0.5f;
+      g->texcoords[1] = (float)texpen.y - 0.5f;
+      g->texcoords[2] = (float)texpen.x + (float)bitmap->width + 0.5f;
+      g->texcoords[3] = (float)texpen.y + (float)bitmap->rows + 0.5f;
     }
     else
     {
-      g->texcoords[0] = ( float )texpen.x;
-      g->texcoords[1] = ( float )texpen.y;
-      g->texcoords[2] = ( float )texpen.x + ( float )bitmap->width;
-      g->texcoords[3] = ( float )texpen.y + ( float )bitmap->rows;
+      g->texcoords[0] = (float)texpen.x;
+      g->texcoords[1] = (float)texpen.y;
+      g->texcoords[2] = (float)texpen.x + (float)bitmap->width;
+      g->texcoords[3] = (float)texpen.y + (float)bitmap->rows;
     }
 
     texpen.x += bitmap->width + 1;
@@ -424,7 +449,7 @@ bool font_inst::face::load_glyph( unsigned int val )
 
     g->advance = theglyph->advance;
   }
-  
+
   return true;
 }
 
@@ -432,11 +457,11 @@ float font_inst::face::kerning( const uint32_t prev, const uint32_t next )
 {
   if( the_face )
   {
-    if( next && FT_HAS_KERNING( ( ( FT_Face )the_face ) ) )
+    if( next && FT_HAS_KERNING( ( (FT_Face)the_face ) ) )
     {
       FT_Vector kern;
-      FT_Get_Kerning( ( FT_Face )the_face, prev, next, FT_KERNING_UNFITTED, &kern );
-      return ( kern.x / (64.0f*64.0f) );
+      FT_Get_Kerning( (FT_Face)the_face, prev, next, FT_KERNING_UNFITTED, &kern );
+      return ( kern.x / ( 64.0f*64.0f ) );
     }
     else
     {
@@ -566,10 +591,10 @@ void font::load_font( const std::string& filename, font_inst& font_ptr, unsigned
   library::get().instances.push_back( &font_ptr );
 }
 
-void font::resize( mm::uvec2 ss )
+void font::resize( const mm::uvec2& ss )
 {
   screensize = ss;
-  font_frame.set_ortographic( 0.0f, ( float )ss.x, 0.0f, ( float )ss.y, 0.0f, 1.0f );
+  font_frame.set_ortographic( 0.0f, (float)ss.x, 0.0f, (float)ss.y, 0.0f, 1.0f );
 }
 
 static std::vector<mm::vec4> vertscalebias;
@@ -600,7 +625,7 @@ bool is_special( wchar_t c )
          c == FONT_HIGHLIGHT_END;
 }
 
-mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr, mm::vec4 color, mm::mat4 mat, mm::vec4 highlight_color, float line_height, float f )
+mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr, const mm::vec4& color, const mm::mat4& mat, const mm::vec4& highlight_color, float line_height, float f )
 {
   static bool underline = false;
   static bool overline = false;
@@ -625,7 +650,7 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       xx = 0;
     }
 
-    if( c > 0 && txt[c] != L'\n' && !is_special(txt[c]) )
+    if( c > 0 && txt[c] != L'\n' && !is_special( txt[c] ) )
     {
       xx += font_ptr.the_face->kerning( txt[c - 1], txt[c] );
     }
@@ -648,10 +673,10 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       highlight = false;
 
     float finalx = xx;
-    mm::vec3 pos = mm::vec3( finalx, ( float )screensize.y - yy, 0 );
+    mm::vec3 pos = mm::vec3( finalx, (float)screensize.y - yy, 0 );
 
     float advancex = 0;
-    
+
     int i = 0;
     for( i = c; i < txt.size(); ++i )
     {
@@ -662,16 +687,16 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
 
     if( highlight )
     {
-      unsigned int datapos = font_ptr.the_face->get_glyph( wchar_t(-1) ).cache_index;
+      unsigned int datapos = font_ptr.the_face->get_glyph( wchar_t( -1 ) ).cache_index;
       fontscalebias& fsb = library::get().get_font_data( datapos );
       fontscalebias copy = fsb;
-      
+
       //vert bias
       copy.vertscalebias.w = font_ptr.the_face->descender();
 
       //hori bias
       copy.vertscalebias.z = 0.0f;
-      
+
       //hori scale
       copy.vertscalebias.x = advancex;
 
@@ -687,16 +712,16 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
 
     if( strikethrough )
     {
-      unsigned int datapos = font_ptr.the_face->get_glyph( wchar_t(-1) ).cache_index;
+      unsigned int datapos = font_ptr.the_face->get_glyph( wchar_t( -1 ) ).cache_index;
       fontscalebias& fsb = library::get().get_font_data( datapos );
       fontscalebias copy = fsb;
-      
+
       //vert bias
       copy.vertscalebias.w = font_ptr.the_face->ascender() * 0.33f;
 
       //hori bias
       copy.vertscalebias.z = 0;
-      
+
       //hori scale
       copy.vertscalebias.x = advancex;
 
@@ -712,16 +737,16 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
 
     if( underline )
     {
-      unsigned int datapos = font_ptr.the_face->get_glyph( wchar_t(-1) ).cache_index;
+      unsigned int datapos = font_ptr.the_face->get_glyph( wchar_t( -1 ) ).cache_index;
       fontscalebias& fsb = library::get().get_font_data( datapos );
       fontscalebias copy = fsb;
-      
+
       //vert bias
       copy.vertscalebias.w = font_ptr.the_face->underline_position();
 
       //hori bias
       copy.vertscalebias.z = 0.0f;
-      
+
       //hori scale
       copy.vertscalebias.x = advancex;
 
@@ -737,16 +762,16 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
 
     if( overline )
     {
-      unsigned int datapos = font_ptr.the_face->get_glyph( wchar_t(-1) ).cache_index;
+      unsigned int datapos = font_ptr.the_face->get_glyph( wchar_t( -1 ) ).cache_index;
       fontscalebias& fsb = library::get().get_font_data( datapos );
       fontscalebias copy = fsb;
-      
+
       //vert bias
       copy.vertscalebias.w = font_ptr.the_face->ascender();
 
       //hori bias
       copy.vertscalebias.z = 0.0f;
-      
+
       //hori scale
       copy.vertscalebias.x = advancex;
 
@@ -760,7 +785,7 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       filter.push_back( f );
     }
 
-    if( c < txt.size() && txt[c] != L' ' && txt[c] != L'\n' && !is_special(txt[c]) )
+    if( c < txt.size() && txt[c] != L' ' && txt[c] != L'\n' && !is_special( txt[c] ) )
     {
       add_glyph( font_ptr, txt[c] );
 
@@ -773,7 +798,7 @@ mm::vec2 font::add_to_render_list( const std::wstring& txt, font_inst& font_ptr,
       filter.push_back( f );
     }
 
-    if( !is_special(txt[c]) )
+    if( !is_special( txt[c] ) )
       xx += font_ptr.the_face->advance( txt[c] );
   }
 

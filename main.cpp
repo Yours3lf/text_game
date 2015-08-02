@@ -28,25 +28,25 @@ void browser::onTitleChanged( Berkelium::Window* win,
 {
   std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> conv;
   std::wstring str( title.mData, title.mLength );
-  frm.set_title( conv.to_bytes(str) );
+  frm.set_title( conv.to_bytes( str ) );
 }
 
 template< class t >
-void visualize( t f, vec3 color = vec3(1) )
+void visualize( t f, const vec3& color = vec3( 1 ) )
 {
-  glUseProgram(0);
+  glUseProgram( 0 );
 
   glMatrixMode( GL_MODELVIEW );
   glLoadIdentity();
   glMatrixMode( GL_PROJECTION );
   mat4 m = ortographic( 0.0f, 100.0f, 0.0f, 100.0f, 0.0f, 1.0f );
-  glLoadMatrixf(&m[0][0]);
+  glLoadMatrixf( &m[0][0] );
   glColor3fv( &color.x );
 
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_LINE_SMOOTH);
-  glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+  glEnable( GL_BLEND );
+  glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+  glEnable( GL_LINE_SMOOTH );
+  glHint( GL_LINE_SMOOTH_HINT, GL_NICEST );
 
   glBegin( GL_LINE_STRIP );
   for( int c = 0; c <= 500; ++c )
@@ -54,8 +54,8 @@ void visualize( t f, vec3 color = vec3(1) )
     float val = c / 500.0f;
 
     float x_val = val;
-    float y_val = f(val);
-      
+    float y_val = f( val );
+
     glVertex2f( x_val * 90 + 5, y_val * 50 + 25 );
   }
   glEnd();
@@ -65,7 +65,7 @@ int main( int argc, char** args )
 {
   shape::set_up_intersection();
 
-  frm.init(res);
+  frm.init( res );
   frm.set_vsync( true );
 
   glDepthFunc( GL_LEQUAL );
@@ -78,13 +78,13 @@ int main( int argc, char** args )
 
   frm.get_opengl_error();
 
-  GLuint ss_quad = frm.create_quad( vec3(-1, -1, 0), vec3(1, -1, 0), vec3(-1, 1, 0), vec3(1, 1, 0) );
+  GLuint ss_quad = frm.create_quad( vec3( -1, -1, 0 ), vec3( 1, -1, 0 ), vec3( -1, 1, 0 ), vec3( 1, 1, 0 ) );
 
   string path = frm.get_app_path();
-  
+
   browser::get().init( L"../resources/berkelium/win32" );
   browser::get().create( b, res );
-  browser::get().navigate( b, string("file:///") + path + "resources/ui/ui.html" );
+  browser::get().navigate( b, string( "file:///" ) + path + "resources/ui/ui.html" );
 
   //load browser shader
   GLuint browser_shader = 0;
@@ -99,7 +99,7 @@ int main( int argc, char** args )
   font::get().load_font( "../resources/font.ttf", font_instance, 20 );
 
   animation anim, anim2;
-  
+
   anim.set_font( &font_instance );
   anim.set_duration( 1 );
   anim.set_loop( false );
@@ -155,71 +155,71 @@ int main( int argc, char** args )
       switch( ev.type )
       {
         case sf::Event::MouseMoved:
-          {
-            vec2 mpos( ev.mouseMove.x / float( res.x ), ev.mouseMove.y / float( res.y ) );
+        {
+                                    vec2 mpos( ev.mouseMove.x / float( res.x ), ev.mouseMove.y / float( res.y ) );
 
-            browser::get().mouse_moved( b, mpos );
+                                    browser::get().mouse_moved( b, mpos );
 
-            break;
-          }
+                                    break;
+        }
         case sf::Event::KeyPressed:
-          {
-            /*if( ev.key.code == sf::Keyboard::A )
-            {
-              cam.rotate_y( radians( cam_rotation_amount ) );
-            }*/
+        {
+                                    /*if( ev.key.code == sf::Keyboard::A )
+                                    {
+                                    cam.rotate_y( radians( cam_rotation_amount ) );
+                                    }*/
 
-            break;
-          }
+                                    break;
+        }
         case sf::Event::TextEntered:
         {
-          wchar_t txt[2];
-          txt[0] = ev.text.unicode;
-          txt[1] = '\0';
-          browser::get().text_entered( b, txt );
+                                     wchar_t txt[2];
+                                     txt[0] = ev.text.unicode;
+                                     txt[1] = '\0';
+                                     browser::get().text_entered( b, txt );
 
-          break;
+                                     break;
         }
         case sf::Event::MouseButtonPressed:
         {
-          if( ev.mouseButton.button == sf::Mouse::Left )
-          {
-            browser::get().mouse_button_event( b, sf::Mouse::Left, true );
-          }
-          else
-          {
-            browser::get().mouse_button_event( b, sf::Mouse::Right, true );
-          }
+                                            if( ev.mouseButton.button == sf::Mouse::Left )
+                                            {
+                                              browser::get().mouse_button_event( b, sf::Mouse::Left, true );
+                                            }
+                                            else
+                                            {
+                                              browser::get().mouse_button_event( b, sf::Mouse::Right, true );
+                                            }
 
-          break;
+                                            break;
         }
         case sf::Event::MouseButtonReleased:
         {
-          if( ev.mouseButton.button == sf::Mouse::Left )
-          {
-            browser::get().mouse_button_event( b, sf::Mouse::Left, false );
-          }
-          else
-          {
-            browser::get().mouse_button_event( b, sf::Mouse::Right, false );
-          }
+                                             if( ev.mouseButton.button == sf::Mouse::Left )
+                                             {
+                                               browser::get().mouse_button_event( b, sf::Mouse::Left, false );
+                                             }
+                                             else
+                                             {
+                                               browser::get().mouse_button_event( b, sf::Mouse::Right, false );
+                                             }
 
-          break;
+                                             break;
         }
         case sf::Event::MouseWheelMoved:
         {
-          browser::get().mouse_wheel_moved( b, ev.mouseWheel.delta * 100.0f );
+                                         browser::get().mouse_wheel_moved( b, ev.mouseWheel.delta * 100.0f );
 
-          break;
+                                         break;
         }
         case sf::Event::Resized:
         {
-          res = uvec2( ev.size.width, ev.size.height );
+                                 res = uvec2( ev.size.width, ev.size.height );
 
-          browser::get().resize( b, res );
-          font::get().resize( res );
+                                 browser::get().resize( b, res );
+                                 font::get().resize( res );
 
-          break;
+                                 break;
         }
         default:
           break;
@@ -257,7 +257,7 @@ int main( int argc, char** args )
 
     glActiveTexture( GL_TEXTURE0 );
     glBindTexture( GL_TEXTURE_2D, b.browser_texture );
-    
+
     glBindVertexArray( ss_quad );
     glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
 
